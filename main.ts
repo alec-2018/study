@@ -209,7 +209,7 @@ namespace LEDBit {
 	 
 	//% blockId=ledbit_led_dynamic block="LED dynamicexpression Show|%index_1"
     //% weight=98
-	export function LEDdynamic(index_1: dynamicenExpression): void {
+	export function LEDdynamic(index_1: dynamicExpression): void {
         if (!initMatrix) {
             matrixInit();
             initMatrix = true;
