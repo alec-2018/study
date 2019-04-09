@@ -1,303 +1,414 @@
-/*
+﻿/*
 Copyright (C): 2010-2019, Shenzhen Yahboom Tech
 modified from liusen
 load dependency
-"HelloBot": "file:../pxt-ledbit"
+"Tinybit": "file:../pxt-Tinybit"
 */
 
-//% color="#E21918" weight=20 icon="\uf140"
-namespace LEDBit {
+//% color="#006400" weight=20 icon="\uf1b9"
+namespace Tinybit {
 
-    // HT16K33 commands
-    const HT16K33_ADDRESS = 0x70
-    const HT16K33_BLINK_CMD = 0x80
-    const HT16K33_BLINK_DISPLAYON = 0x01
-    const HT16K33_BLINK_OFF = 0
-    const HT16K33_BLINK_2HZ = 1
-    const HT16K33_BLINK_1HZ = 2
-    const HT16K33_BLINK_HALFHZ = 3
-    const HT16K33_CMD_BRIGHTNESS = 0xE0
+    const PWM_ADD = 0x01
+    const MOTOR = 0x02
+    const RGB = 0x01
+    
+    let yahStrip: neopixel.Strip;
 
-    let matBuf = pins.createBuffer(17);
-    let initMatrix = false
+    export enum enColor {
 
-    export enum enState { 
-         //% blockId="OFF" block="OFF"
-         OFF = 0,
-         //% blockId="ON" block="ON"
-         ON = 1
+        //% blockId="OFF" block="OFF"
+        OFF = 0,
+        //% blockId="Red" block="Red"
+        Red,
+        //% blockId="Green" block="Green"
+        Green,
+        //% blockId="Blue" block="Blue"
+        Blue,
+        //% blockId="White" block="White"
+        White,
+        //% blockId="Cyan" block="Cyan"
+        Cyan,
+        //% blockId="Pinkish" block="Pinkish"
+        Pinkish,
+        //% blockId="Yellow" block="Yellow"
+        Yellow,
+
+    }
+    export enum enMusic {
+
+        dadadum = 0,
+        entertainer,
+        prelude,
+        ode,
+        nyan,
+        ringtone,
+        funk,
+        blues,
+
+        birthday,
+        wedding,
+        funereal,
+        punchline,
+        baddy,
+        chase,
+        ba_ding,
+        wawawawaa,
+        jump_up,
+        jump_down,
+        power_up,
+        power_down
+    }
+    export enum enPos {
+
+        //% blockId="LeftState" block="LeftState"
+        LeftState = 0,
+        //% blockId="RightState" block="RightState"
+        RightState = 1
     }
 
-    //静态表情
-    export enum enExpression { 
-        //% blockId="FACE1" block="Smile"
-        FACE1 = 0,
-        //% blockId="FACE2" block="Grin"
-        FACE2,
-        //% blockId="FACE3" block="Sad"
-        FACE3,
-        //% blockId="FACE4" block="Cry"
-        FACE4,
-		//% blockId="FACE5" block="Surprise"
-		FACE5,
-		//% blockId="FACE5" block="Tongue"
-		FACE6,
-		//% blockId="FACE5" block="Pout"
-		FACE7,
-		
+    export enum enLineState {
+        //% blockId="White" block="White Line"
+        White = 0,
+        //% blockId="Black" block="Black Line"
+        Black = 1
     }
-    let smile = pins.createBuffer(17);
-    let grin = pins.createBuffer(17);
-    let sad = pins.createBuffer(17);
-    let cry = pins.createBuffer(17);
-	let Surprise = pins.createBuffer(17);
-	let Tongue = pins.createBuffer(17);  //吐舌头
-    let Pout = pins.createBuffer(17);    //咧嘴
-	
-    let smile1:number[] = [0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x10, 0x8, 0x18, 0x18, 0xf, 0xf0, 0x3, 0xc0];
-    let grin1:number[] = [0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x3f, 0xfc, 0x15, 0xa8, 0xf, 0xf0, 0x3, 0xc0];
-    let sad1:number[] = [0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x3, 0xc0, 0xf, 0xf0, 0x18, 0x18, 0x30, 0xc, 0x20, 0x4];
-    let cry1:number[] = [0x0, 0xc, 0x18, 0xc, 0x18, 0x8, 0x8, 0x0, 0x0, 0x0, 0x0, 0x1, 0xc0, 0x2, 0x20, 0x4, 0x10];
-	let Surprise1:number[] = [0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x7, 0xe0, 0x4, 0x20, 0x2, 0x40, 0x1, 0x80];
-    let Tongue1:number[] = [0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x10, 0x8, 0xf, 0xf0, 0xe, 0x0, 0x4, 0x0, 0x0, 0x0];
-	let Pout1:number[] = [0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1f, 0xf8, 0x8, 0x10, 0x4, 0x20, 0x3, 0xc0];
+    
+    export enum enTouchState {
+        //% blockId="Get" block="Get"
+        Get = 0,
+        //% blockId="NoGet" block="NoGet"
+        NoGet = 1
+    }    
+    export enum enAvoidState {
+        //% blockId="OBSTACLE" block="Obstacle"
+        OBSTACLE = 1,
+        //% blockId="NOOBSTACLE" block="No Obstacle"
+        NOOBSTACLE = 0
 
-
-
-
-
-    function i2cwrite(addr: number, reg: number, value: number) {
-        let buf = pins.createBuffer(2)
-        buf[0] = reg
-        buf[1] = value
-        pins.i2cWriteBuffer(addr, buf)
+    }
+    
+    export enum CarState {
+        //% blockId="Car_Run" block="Run"
+        Car_Run = 1,
+        //% blockId="Car_Back" block="Back"
+        Car_Back = 2,
+        //% blockId="Car_Left" block="Left"
+        Car_Left = 3,
+        //% blockId="Car_Right" block="Right"
+        Car_Right = 4,
+        //% blockId="Car_Stop" block="Stop"
+        Car_Stop = 5,
+        //% blockId="Car_SpinLeft" block="SpinLeft"
+        Car_SpinLeft = 6,
+        //% blockId="Car_SpinRight" block="SpinRight"
+        Car_SpinRight = 7
     }
 
-    function i2ccmd(addr: number, value: number) {
-        let buf = pins.createBuffer(1)
-        buf[0] = value
-        pins.i2cWriteBuffer(addr, buf)
+    function setPwmRGB(red: number, green: number, blue: number): void {
+
+        let buf = pins.createBuffer(4);
+        buf[0] = RGB;
+        buf[1] = red;
+        buf[2] = green;
+        buf[3] = blue;
+        
+        pins.i2cWriteBuffer(PWM_ADD, buf);
     }
 
-    function i2cread(addr: number, reg: number) {
-        pins.i2cWriteNumber(addr, reg, NumberFormat.UInt8BE);
-        let val = pins.i2cReadNumber(addr, NumberFormat.UInt8BE);
-        return val;
+    function setPwmMotor(mode: number, speed1: number, speed2: number): void {
+        if (mode < 0 || mode > 6)
+            return;
+        
+        let buf = pins.createBuffer(5);
+        buf[0] = MOTOR;
+        switch (mode) { 
+            case 0: buf[1] = 0; buf[2] = 0; buf[3] = 0; buf[4] = 0; break;              //stop
+            case 1: buf[1] = speed1; buf[2] = 0; buf[3] = speed2; buf[4] = 0; break;    //run
+            case 2: buf[1] = 0; buf[2] = speed1; buf[3] = 0; buf[4] = speed2; break;    //back
+            case 3: buf[1] = 0; buf[2] = 0; buf[3] = speed2; buf[4] = 0; break;         //left
+            case 4: buf[1] = speed1; buf[2] = 0; buf[3] = 0; buf[4] = 0; break;         //right
+            case 5: buf[1] = 0; buf[2] = speed1; buf[3] = speed2; buf[4] = 0; break;    //tleft
+            case 6: buf[1] = speed1; buf[2] = 0; buf[3] = 0; buf[4] = speed2; break;    //tright
+        }
+        pins.i2cWriteBuffer(PWM_ADD, buf);
     }
 
-    function matrixInit() {
-        i2ccmd(HT16K33_ADDRESS, 0x21);// turn on oscillator
-        i2ccmd(HT16K33_ADDRESS, HT16K33_BLINK_CMD | HT16K33_BLINK_DISPLAYON | (0 << 1));
-        i2ccmd(HT16K33_ADDRESS, HT16K33_CMD_BRIGHTNESS | 0xF);
+    function Car_run(speed1: number, speed2: number) {
+
+
+        setPwmMotor(1, speed1, speed2);
     }
 
-    function matrixShow() {
-        matBuf[0] = 0x00;
-        pins.i2cWriteBuffer(HT16K33_ADDRESS, matBuf);
+    function Car_back(speed1: number, speed2: number) {
+
+        setPwmMotor(2, speed1, speed2);
     }
+
+    function Car_left(speed1: number, speed2: number) {
+
+        setPwmMotor(3, speed1, speed2);
+    }
+
+    function Car_right(speed1: number, speed2: number) {
+
+        setPwmMotor(4, speed1, speed2);
+    }
+
+    function Car_stop() {
+       
+        setPwmMotor(0, 0, 0);
+    }
+
+    function Car_spinleft(speed1: number, speed2: number) {
+
+        setPwmMotor(5, speed1, speed2);
+    } 
+
+    function Car_spinright(speed1: number, speed2: number) {
+
+        setPwmMotor(6, speed1, speed2);
+    }
+
     /**
      * *****************************************************************
      * @param index
-     */
+     */   
 
-    //% blockId=ledbit_led_show block="LED expression Show|%index"
+    //% blockId=Tinybit_RGB_Car_Program block="RGB_Car_Program"
     //% weight=99
-    export function LEDShow(index: enExpression): void {
-        if (!initMatrix) {
-            matrixInit();
-            initMatrix = true;
+    //% blockGap=10
+    //% color="#006400"
+    //% name.fieldEditor="gridpicker" name.fieldOptions.columns=4
+    export function RGB_Car_Program(): neopixel.Strip {
+         
+        if (!yahStrip) {
+            yahStrip = neopixel.create(DigitalPin.P12, 2, NeoPixelMode.RGB);
         }
-        switch(index) { 
-            case enExpression.FACE1: { 
-                smile[0] = smile1[0];
-                for (let i = 1; i < 17; i += 2) {
-                    smile[i] = smile1[i + 1];
-                    smile[i + 1] = smile1[i];
-                }
+        return yahStrip;  
+    }  
 
-                pins.i2cWriteBuffer(HT16K33_ADDRESS, smile);
-                break; 
-            } 
-            case enExpression.FACE2: { 
-                //statements; 
-                grin[0] = grin1[0];
-                for (let i = 1; i < 17; i += 2) {
-                    grin[i] = grin1[i + 1];
-                    grin[i + 1] = grin1[i];
-                }
-           
-                pins.i2cWriteBuffer(HT16K33_ADDRESS, grin);
-                break; 
-            } 
-            case enExpression.FACE3: { 
-                sad[0] = sad1[0];
-                for (let i = 1; i < 17; i += 2) {
-                    sad[i] = sad1[i + 1];
-                    sad[i + 1] = sad1[i];
-                }
-            
-                pins.i2cWriteBuffer(HT16K33_ADDRESS, sad);
-                break; 
-            } 
-            case enExpression.FACE4: { 
-                cry[0] = cry1[0];
-                for (let i = 1; i < 17; i += 2) {
-                    cry[i] = cry1[i + 1];
-                    cry[i + 1] = cry1[i];
-                }
-                
-                pins.i2cWriteBuffer(HT16K33_ADDRESS, cry);
-                break; 
-             } 
-			 case enExpression.FACE5: { 
-                Surprise[0] = Surprise1[0];
-                for (let i = 1; i < 17; i += 2) {
-                    Surprise[i] = Surprise1[i + 1];
-                    Surprise[i + 1] = Surprise1[i];
-                }
-                
-                pins.i2cWriteBuffer(HT16K33_ADDRESS, Surprise);
-                break; 
-             } 
-			 case enExpression.FACE6: { 
-                Tongue[0] = Tongue1[0];
-                for (let i = 1; i < 17; i += 2) {
-                    Tongue[i] = Tongue1[i + 1];
-                    Tongue[i + 1] = Tongue1[i];
-                }
-                
-                pins.i2cWriteBuffer(HT16K33_ADDRESS, Tongue);
-                break; 
-             }
-			 case enExpression.FACE7: { 
-                Pout[0] = Pout1[0];
-                for (let i = 1; i < 17; i += 2) {
-                    Pout[i] = Pout1[i + 1];
-                    Pout[i + 1] = Pout1[i];
-                }
-                
-                pins.i2cWriteBuffer(HT16K33_ADDRESS, Pout);
-                break; 
-             }
-            default: { 
-               //statements; 
-               break; 
-            } 
-         } 
-    }
-	
-	    //动态表情
-    export enum dynamicExpression { 
-        //% blockId="dynamic_FACE1" block="Open_mouth0"
-        dynamic_FACE1 = 0,
-        //% blockId="dynamic_FACE2" block="Open_mouth1"
-        dynamic_FACE2,
-    }
-
-    //张大嘴巴
-     let Open_mouth0 = pins.createBuffer(17);
-     let Open_mouth1 = pins.createBuffer(17);
-	 
-     let Open_mouth01:number[] = [0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x3,0xc0,0x4,0x20,0x8,0x10,0x4,0x20,0x3,0xc0];
-     let Open_mouth11:number[] = [0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x7,0xe0,0xf,0xf0,0x7,0xe0,0x0,0x0];
-
-
-	/**
-     * *****************************************************************
-     * @param index
-     */
-	 
-	//% blockId=ledbit_led_dynamic block="LED dynamicexpression Show|%index_1"
+    //% blockId=Tinybit_RGB_Car_Big block="RGB_Car_Big|value %value"
     //% weight=98
-	export function LEDdynamic(index_1: dynamicExpression): void {
-        if (!initMatrix) {
-            matrixInit();
-            initMatrix = true;
+    //% blockGap=10
+    //% name.fieldEditor="gridpicker" name.fieldOptions.columns=4
+    export function RGB_Car_Big(value: enColor): void {
+
+        switch (value) {
+            case enColor.OFF: {
+                setPwmRGB(0, 0, 0);
+                break;
+            }
+            case enColor.Red: {
+                setPwmRGB(255, 0, 0);
+                break;
+            }
+            case enColor.Green: {
+                setPwmRGB(0, 255, 0);
+                break;
+            }
+            case enColor.Blue: {
+                setPwmRGB(0, 0, 255);
+                break;
+            }
+            case enColor.White: {
+                setPwmRGB(255, 255, 255);
+                break;
+            }
+            case enColor.Cyan: {
+                setPwmRGB(0, 255, 255);
+                break;
+            }
+            case enColor.Pinkish: {
+                setPwmRGB(255, 0, 255);
+                break;
+            }
+            case enColor.Yellow: {
+                setPwmRGB(255, 255, 0);
+                break;
+            }
         }
-        switch(index_1) { 
-            case dynamicExpression.dynamic_FACE1: { 
-                Open_mouth0[0] = Open_mouth01[0];
-                for (let i = 1; i < 17; i += 2) {
-                    Open_mouth0[i] = Open_mouth01[i + 1];
-                    Open_mouth0[i + 1] = Open_mouth01[i];
-                }
-
-                pins.i2cWriteBuffer(HT16K33_ADDRESS, Open_mouth0);
-				
-				Open_mouth1[0] = Open_mouth11[0];
-                for (let i = 1; i < 17; i += 2) {
-                    Open_mouth1[i] = Open_mouth11[i + 1];
-                    Open_mouth1[i + 1] = Open_mouth11[i];
-                }
-           
-                pins.i2cWriteBuffer(HT16K33_ADDRESS, Open_mouth1);
-                break; 
-            } 
-            case dynamicExpression.dynamic_FACE2: { 
-                //statements; 
-                Open_mouth1[0] = Open_mouth11[0];
-                for (let i = 1; i < 17; i += 2) {
-                    Open_mouth1[i] = Open_mouth11[i + 1];
-                    Open_mouth1[i + 1] = Open_mouth11[i];
-                }
-           
-                pins.i2cWriteBuffer(HT16K33_ADDRESS, Open_mouth1);
-                break; 
-            } 
-			 
-            default: { 
-               //statements; 
-               break; 
-            } 
-         } 
     }
-
-    //% blockId=ledbit_led_draw block="LED expression Draw|X %x|Y %y| %on"
-    //% x.min=1 x.max=15 y.min=0 y.max=7
+    //% blockId=Tinybit_RGB_Car_Big2 block="RGB_Car_Big2|value1 %value1|value2 %value2|value3 %value3"
     //% weight=97
-    export function LEDDraw(x: number, y: number, on: enState): void {
-        if (!initMatrix) {
-            matrixInit();
-            initMatrix = true;
-        }
-        let idx = y * 2 + x / 8;
-        let tmp = matBuf[idx + 1];
-        if(on == enState.ON)
-            tmp |= (1 << (x % 8));
-        else
-            tmp &= ~(1 << (x % 8));
-        matBuf[idx + 1] = tmp;
-        matrixShow();
+    //% blockGap=10
+    //% value1.min=0 value1.max=255 value2.min=0 value2.max=255 value3.min=0 value3.max=255
+    //% name.fieldEditor="gridpicker" name.fieldOptions.columns=4
+    export function RGB_Car_Big2(value1: number, value2: number, value3: number): void {
+
+        setPwmRGB(value1, value2, value3);
+
     }
-
-
-    //% blockId=ledbit_led_clear block="LED expression Clear"
-    //% weight=96
-    export function LEDClear(): void {
-        if (!initMatrix) {
-            matrixInit();
-            initMatrix = true;
-        }
-        for (let i = 0; i < 16; i++) {
-            matBuf[i + 1] = 0;
-        }
-        matrixShow();
-    }
-
-    //% blockId=ledbit_led_AllOn block="Matrix All On"
+    //% blockId=Tinybit_Music_Car block="Music_Car|%index"
     //% weight=95
-    //% blockGap=50
-    export function LEDAllOn(): void {
-        if (!initMatrix) {
-            matrixInit();
-            initMatrix = true;
+    //% blockGap=10
+    //% color="#006400"
+    //% name.fieldEditor="gridpicker" name.fieldOptions.columns=4
+    export function Music_Car(index: enMusic): void {
+        switch (index) {
+            case enMusic.dadadum: music.beginMelody(music.builtInMelody(Melodies.Dadadadum), MelodyOptions.Once); break;
+            case enMusic.birthday: music.beginMelody(music.builtInMelody(Melodies.Birthday), MelodyOptions.Once); break;
+            case enMusic.entertainer: music.beginMelody(music.builtInMelody(Melodies.Entertainer), MelodyOptions.Once); break;
+            case enMusic.prelude: music.beginMelody(music.builtInMelody(Melodies.Prelude), MelodyOptions.Once); break;
+            case enMusic.ode: music.beginMelody(music.builtInMelody(Melodies.Ode), MelodyOptions.Once); break;
+            case enMusic.nyan: music.beginMelody(music.builtInMelody(Melodies.Nyan), MelodyOptions.Once); break;
+            case enMusic.ringtone: music.beginMelody(music.builtInMelody(Melodies.Ringtone), MelodyOptions.Once); break;
+            case enMusic.funk: music.beginMelody(music.builtInMelody(Melodies.Funk), MelodyOptions.Once); break;
+            case enMusic.blues: music.beginMelody(music.builtInMelody(Melodies.Blues), MelodyOptions.Once); break;
+            case enMusic.wedding: music.beginMelody(music.builtInMelody(Melodies.Wedding), MelodyOptions.Once); break;
+            case enMusic.funereal: music.beginMelody(music.builtInMelody(Melodies.Funeral), MelodyOptions.Once); break;
+            case enMusic.punchline: music.beginMelody(music.builtInMelody(Melodies.Punchline), MelodyOptions.Once); break;
+            case enMusic.baddy: music.beginMelody(music.builtInMelody(Melodies.Baddy), MelodyOptions.Once); break;
+            case enMusic.chase: music.beginMelody(music.builtInMelody(Melodies.Chase), MelodyOptions.Once); break;
+            case enMusic.ba_ding: music.beginMelody(music.builtInMelody(Melodies.BaDing), MelodyOptions.Once); break;
+            case enMusic.wawawawaa: music.beginMelody(music.builtInMelody(Melodies.Wawawawaa), MelodyOptions.Once); break;
+            case enMusic.jump_up: music.beginMelody(music.builtInMelody(Melodies.JumpUp), MelodyOptions.Once); break;
+            case enMusic.jump_down: music.beginMelody(music.builtInMelody(Melodies.JumpDown), MelodyOptions.Once); break;
+            case enMusic.power_up: music.beginMelody(music.builtInMelody(Melodies.PowerUp), MelodyOptions.Once); break;
+            case enMusic.power_down: music.beginMelody(music.builtInMelody(Melodies.PowerDown), MelodyOptions.Once); break;
         }
-        for (let i = 0; i < 16; i++) {
-            matBuf[i + 1] = 0xff;
-        }
-        matrixShow();
     }
     
     
+    
+    //% blockId=Tinybit_CarCtrl block="CarCtrl|%index"
+    //% weight=93
+    //% blockGap=10
+    //% color="#006400"
+    //% name.fieldEditor="gridpicker" name.fieldOptions.columns=10
+    export function CarCtrl(index: CarState): void {
+        switch (index) {
+            case CarState.Car_Run: Car_run(255, 255); break;
+            case CarState.Car_Back: Car_back(255, 255); break;
+            case CarState.Car_Left: Car_left(255, 255); break;
+            case CarState.Car_Right: Car_right(255, 255); break;
+            case CarState.Car_Stop: Car_stop(); break;
+            case CarState.Car_SpinLeft: Car_spinleft(255, 255); break;
+            case CarState.Car_SpinRight: Car_spinright(255, 255); break;
+        }
+    }
+    
+    //% blockId=Tinybit_CarCtrlSpeed block="CarCtrlSpeed|%index|speed %speed"
+    //% weight=92
+    //% blockGap=10
+    //% speed.min=0 speed.max=255
+    //% color="#006400"
+    //% name.fieldEditor="gridpicker" name.fieldOptions.columns=10
+    export function CarCtrlSpeed(index: CarState, speed: number): void {
+        switch (index) {
+            case CarState.Car_Run: Car_run(speed, speed); break;
+            case CarState.Car_Back: Car_back(speed, speed); break;
+            case CarState.Car_Left: Car_left(speed, speed); break;
+            case CarState.Car_Right: Car_right(speed, speed); break;
+            case CarState.Car_Stop: Car_stop(); break;
+            case CarState.Car_SpinLeft: Car_spinleft(speed, speed); break;
+            case CarState.Car_SpinRight: Car_spinright(speed, speed); break;
+        }
+    }
+    
+    //% blockId=Tinybit_CarCtrlSpeed2 block="CarCtrlSpeed2|%index|speed1 %speed1|speed2 %speed2"
+    //% weight=91
+    //% blockGap=10
+    //% speed1.min=0 speed1.max=255 speed2.min=0 speed2.max=255
+    //% color="#006400"
+    //% name.fieldEditor="gridpicker" name.fieldOptions.columns=10
+    export function CarCtrlSpeed2(index: CarState, speed1: number, speed2: number): void {
+        switch (index) {
+            case CarState.Car_Run: Car_run(speed1, speed2); break;
+            case CarState.Car_Back: Car_back(speed1, speed2); break;
+            case CarState.Car_Left: Car_left(speed1, speed2); break;
+            case CarState.Car_Right: Car_right(speed1, speed2); break;
+            case CarState.Car_Stop: Car_stop(); break;
+            case CarState.Car_SpinLeft: Car_spinleft(speed1, speed2); break;
+            case CarState.Car_SpinRight: Car_spinright(speed1, speed2); break;
+        }
+    }    
+        
+   
+    
+    //% blockId=Tinybit_Line_Sensor block="Line_Sensor|direct %direct|value %value"
+    //% weight=89
+    //% blockGap=10
+    //% color="#006400"
+    //% name.fieldEditor="gridpicker" name.fieldOptions.columns=12
+    export function Line_Sensor(direct: enPos, value: enLineState): boolean {
 
+        let temp: boolean = false;
+        //pins.setPull(DigitalPin.P13, PinPullMode.PullUp);
+        //pins.setPull(DigitalPin.P14, PinPullMode.PullUp);
+        switch (direct) {
+            case enPos.LeftState: {
+                if (pins.digitalReadPin(DigitalPin.P13) == value) {              
+                    temp = true;                  
+                }
+                else {                  
+                     temp = false;
+                }
+                break;
+            }
+
+            case enPos.RightState: {
+                if (pins.digitalReadPin(DigitalPin.P14) == value) {              
+                    temp = true;                  
+                }
+                else {
+                    temp = false;
+                }
+                break;
+            }
+        }
+        return temp;
+
+    }
+
+    //% blockId=Tinybit_Voice_Sensor block="Voice Sensor return"
+    //% weight=88
+    //% blockGap=10
+    //% name.fieldEditor="gridpicker" name.fieldOptions.columns=12
+    export function Voice_Sensor(): number {
+	    //pins.setPull(DigitalPin.P1, PinPullMode.PullUp);
+        let temp  = 0;		
+        temp = pins.analogReadPin(AnalogPin.P1);           
+            
+        return temp;
+
+    }
+        
+	//% blockId=Tinybit_Ultrasonic_Car block="ultrasonic return distance(cm)"
+    //% color="#006400"
+    //% weight=87
+    //% blockGap=10
+    //% name.fieldEditor="gridpicker" name.fieldOptions.columns=4
+    export function Ultrasonic_Car(): number {
+    // send pulse       
+        let list:Array<number> = [0, 0, 0, 0, 0];
+       /* for (let i = 0; i < 5; i++) {
+            pins.setPull(DigitalPin.P16, PinPullMode.PullNone);
+			pins.digitalWritePin(DigitalPin.P16, 0);
+			control.waitMicros(2);
+			pins.digitalWritePin(DigitalPin.P16, 1);
+			control.waitMicros(15);
+			pins.digitalWritePin(DigitalPin.P16, 0);
+	
+			let d = pins.pulseIn(DigitalPin.P15, PulseValue.High, 43200);
+			list[i] = Math.floor(d / 40);
+        }
+        list.sort();*/
+        let length = (list[1] + list[2] + list[3])/3;
+		
+        return  Math.floor(length);
+
+	    // send pulse       
+ /*       
+        pins.setPull(DigitalPin.P16, PinPullMode.PullNone);
+        
+        pins.digitalWritePin(DigitalPin.P16, 0);
+        control.waitMicros(2);
+        pins.digitalWritePin(DigitalPin.P16, 1);
+        control.waitMicros(15);
+        pins.digitalWritePin(DigitalPin.P16, 0);
+
+        let d = pins.pulseIn(DigitalPin.P15, PulseValue.High, 43200);
+        let length = Math.floor(d / 40);
+        return  length;
+		*/
 }

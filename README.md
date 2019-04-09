@@ -1,6 +1,6 @@
-# LEDBit
+# Tiny:bit
 
-Extension for Yahboom LEDBit
+Extension for Yahboom Tiny:bit V1.1
 
 ## License
 
